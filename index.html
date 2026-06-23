@@ -222,21 +222,25 @@ const SEEDED = [
   {name:"Colombia",    flag:"🇨🇴", abbr:"COL"},
 ];
 const REST = [
-  {name:"Mexico",      flag:"🇲🇽", abbr:"MEX"},{name:"Japan",       flag:"🇯🇵", abbr:"JPN"},
-  {name:"Morocco",     flag:"🇲🇦", abbr:"MAR"},{name:"Uruguay",     flag:"🇺🇾", abbr:"URU"},
-  {name:"Belgium",     flag:"🇧🇪", abbr:"BEL"},{name:"Croatia",     flag:"🇭🇷", abbr:"CRO"},
-  {name:"Switzerland", flag:"🇨🇭", abbr:"SUI"},{name:"South Korea", flag:"🇰🇷", abbr:"KOR"},
-  {name:"Ecuador",     flag:"🇪🇨", abbr:"ECU"},{name:"Senegal",     flag:"🇸🇳", abbr:"SEN"},
-  {name:"Australia",   flag:"🇦🇺", abbr:"AUS"},{name:"Canada",      flag:"🇨🇦", abbr:"CAN"},
-  {name:"Norway",      flag:"🇳🇴", abbr:"NOR"},{name:"Tunisia",     flag:"🇹🇳", abbr:"TUN"},
-  {name:"Egypt",       flag:"🇪🇬", abbr:"EGY"},{name:"Scotland",    flag:"🏴󠁧󠁢󠁳󠁣󠁴󠁿", abbr:"SCO"},
-  {name:"Algeria",     flag:"🇩🇿", abbr:"DZA"},{name:"Austria",     flag:"🇦🇹", abbr:"AUT"},
-  {name:"Paraguay",    flag:"🇵🇾", abbr:"PAR"},{name:"Qatar",       flag:"🇶🇦", abbr:"QAT"},
-  {name:"Serbia",      flag:"🇷🇸", abbr:"SRB"},{name:"Poland",      flag:"🇵🇱", abbr:"POL"},
-  {name:"Ukraine",     flag:"🇺🇦", abbr:"UKR"},{name:"Denmark",     flag:"🇩🇰", abbr:"DEN"},
-  {name:"Ghana",       flag:"🇬🇭", abbr:"GHA"},{name:"Nigeria",     flag:"🇳🇬", abbr:"NGA"},
-  {name:"Ivory Coast", flag:"🇨🇮", abbr:"CIV"},{name:"Saudi Arabia",flag:"🇸🇦", abbr:"KSA"},
-  {name:"IR Iran",     flag:"🇮🇷", abbr:"IRN"},{name:"Congo DR",    flag:"🇨🇩", abbr:"COD"},
+  {name:"Mexico",              flag:"🇲🇽", abbr:"MEX"},{name:"Japan",               flag:"🇯🇵", abbr:"JPN"},
+  {name:"Morocco",             flag:"🇲🇦", abbr:"MAR"},{name:"Uruguay",             flag:"🇺🇾", abbr:"URU"},
+  {name:"Belgium",             flag:"🇧🇪", abbr:"BEL"},{name:"Croatia",             flag:"🇭🇷", abbr:"CRO"},
+  {name:"Switzerland",         flag:"🇨🇭", abbr:"SUI"},{name:"South Korea",         flag:"🇰🇷", abbr:"KOR"},
+  {name:"Ecuador",             flag:"🇪🇨", abbr:"ECU"},{name:"Senegal",             flag:"🇸🇳", abbr:"SEN"},
+  {name:"Australia",           flag:"🇦🇺", abbr:"AUS"},{name:"Canada",              flag:"🇨🇦", abbr:"CAN"},
+  {name:"Norway",              flag:"🇳🇴", abbr:"NOR"},{name:"Tunisia",             flag:"🇹🇳", abbr:"TUN"},
+  {name:"Egypt",               flag:"🇪🇬", abbr:"EGY"},{name:"Scotland",            flag:"🏴󠁧󠁢󠁳󠁣󠁴󠁿", abbr:"SCO"},
+  {name:"Algeria",             flag:"🇩🇿", abbr:"DZA"},{name:"Austria",             flag:"🇦🇹", abbr:"AUT"},
+  {name:"Paraguay",            flag:"🇵🇾", abbr:"PAR"},{name:"Qatar",               flag:"🇶🇦", abbr:"QAT"},
+  {name:"Ghana",               flag:"🇬🇭", abbr:"GHA"},{name:"Ivory Coast",         flag:"🇨🇮", abbr:"CIV"},
+  {name:"Saudi Arabia",        flag:"🇸🇦", abbr:"KSA"},{name:"IR Iran",             flag:"🇮🇷", abbr:"IRN"},
+  {name:"Congo DR",            flag:"🇨🇩", abbr:"COD"},{name:"Haiti",               flag:"🇭🇹", abbr:"HTI"},
+  {name:"Cape Verde",          flag:"🇨🇻", abbr:"CPV"},{name:"Iraq",                flag:"🇮🇶", abbr:"IRQ"},
+  {name:"Jordan",              flag:"🇯🇴", abbr:"JOR"},{name:"South Africa",        flag:"🇿🇦", abbr:"RSA"},
+  {name:"Uzbekistan",          flag:"🇺🇿", abbr:"UZB"},{name:"Bosnia & Herz.",      flag:"🇧🇦", abbr:"BIH"},
+  {name:"Curaçao",             flag:"🇨🇼", abbr:"CUW"},{name:"Czechia",             flag:"🇨🇿", abbr:"CZE"},
+  {name:"Sweden",              flag:"🇸🇪", abbr:"SWE"},{name:"New Zealand",         flag:"🇳🇿", abbr:"NZL"},
+  {name:"Panama",              flag:"🇵🇦", abbr:"PAN"},{name:"Türkiye",             flag:"🇹🇷", abbr:"TUR"},
 ];
 
 const POOL_KEY    = "wc2026_pool_v1";
@@ -247,7 +251,8 @@ let pool  = [];
 let saving = false;
 
 function configOk() {
-  return JSONBIN_API_KEY !== "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma" && JSONBIN_BIN_ID !== "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
+  return JSONBIN_API_KEY !== "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma" 
+  && JSONBIN_BIN_ID !== "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
 }
 
 /* All 48 teams in the pool */
@@ -338,9 +343,15 @@ async function handleDraw() {
     return;
   }
 
+  if (Object.keys(draws).length >= 30) {
+    showError("The sweepstake is full — all 30 spots have been taken!");
+    btn.disabled = false; btn.textContent = "Draw ⚽";
+    return;
+  }
+
   const available = getAvailable();
   if (available.length === 0) {
-    showError("All 48 teams have been drawn — the sweepstake is full!");
+    showError("All teams have been drawn — the sweepstake is full!");
     btn.disabled = false; btn.textContent = "Draw ⚽";
     return;
   }
@@ -379,10 +390,9 @@ function triggerReveal(flag, country, sub) {
 function render() {
   const entries = Object.values(draws).sort((a,b) => a.name.localeCompare(b.name));
   const drawn   = entries.length;
-  const total   = pool.length || 30;
   document.getElementById("stat-drawn").textContent     = drawn;
-  document.getElementById("stat-remaining").textContent = total - drawn;
-  document.getElementById("progress-bar").style.width   = Math.round((drawn / total) * 100) + "%";
+  document.getElementById("stat-remaining").textContent = 30 - drawn;
+  document.getElementById("progress-bar").style.width   = Math.round((drawn / 30) * 100) + "%";
   const grid = document.getElementById("results-grid");
   if (!entries.length) { grid.innerHTML = '<div class="empty">No draws yet — be the first!</div>'; return; }
   grid.innerHTML = entries.map(d => `
