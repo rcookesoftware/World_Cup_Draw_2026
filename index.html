@@ -251,8 +251,7 @@ let pool  = [];
 let saving = false;
 
 function configOk() {
-  return JSONBIN_API_KEY !== "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma" 
-  && JSONBIN_BIN_ID !== "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
+  return JSONBIN_API_KEY !== "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma" && JSONBIN_BIN_ID !== "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
 }
 
 /* All 48 teams in the pool */
@@ -414,7 +413,7 @@ function normalizeName(n) {
 // STEP 2 CONFIG — paste your Cloudflare Worker URL here
 // after deploying wc2026-worker.js
 // =====================================================
-const WORKER_URL = "https://wc2026-workerjs.rcooketuam.workers.dev";
+const WORKER_URL = "YOUR_WORKER_URL_HERE";
 // =====================================================
 
 const REFRESH_MS = 3 * 60 * 1000; // auto-refresh every 3 minutes
