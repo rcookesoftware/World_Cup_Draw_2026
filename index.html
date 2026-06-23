@@ -137,8 +137,8 @@
      3. New Bin → create with {} → paste Bin ID below
      ===================================================== -->
 <script>
-  const JSONBIN_API_KEY = "YOUR_API_KEY_HERE";
-  const JSONBIN_BIN_ID  = "YOUR_BIN_ID_HERE";
+  const JSONBIN_API_KEY = "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma";
+  const JSONBIN_BIN_ID  = "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
 </script>
 
 <header>
@@ -243,36 +243,33 @@ const REST = [
   {name:"Panama",              flag:"🇵🇦", abbr:"PAN"},{name:"Türkiye",             flag:"🇹🇷", abbr:"TUR"},
 ];
 
-const POOL_KEY    = "wc2026_pool_v1";
-const DRAWS_KEY   = "wc2026_draws_v2";
-const BASE        = "https://api.jsonbin.io/v3/b";
+const BASE = "https://api.jsonbin.io/v3/b";
+// Pool is always built from the hardcoded team list — never stored in JSONBin
+// Only draws are stored: { "ryan": { name, country, flag }, ... }
+const POOL = [...SEEDED, ...REST]; // all 48 teams
 let draws = {};
-let pool  = [];
 let saving = false;
 
 function configOk() {
-  return JSONBIN_API_KEY !== "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma" && JSONBIN_BIN_ID !== "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
-}
-
-/* All 48 teams in the pool */
-function buildPool() {
-  return [...SEEDED, ...REST];
+  return JSONBIN_API_KEY !== "YOUR_API_KEY_HERE" && JSONBIN_BIN_ID !== "YOUR_BIN_ID_HERE";
 }
 
 async function loadFromBin() {
   const r = await fetch(`${BASE}/${JSONBIN_BIN_ID}/latest`, {
     headers: { "X-Master-Key": JSONBIN_API_KEY }
   });
+  if (!r.ok) throw new Error(`JSONBin ${r.status}`);
   const j = await r.json();
   return j.record || {};
 }
 
 async function saveToBin(data) {
-  await fetch(`${BASE}/${JSONBIN_BIN_ID}`, {
+  const r = await fetch(`${BASE}/${JSONBIN_BIN_ID}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
     body: JSON.stringify(data)
   });
+  if (!r.ok) throw new Error(`Save failed ${r.status}`);
 }
 
 async function loadDraws() {
@@ -284,14 +281,7 @@ async function loadDraws() {
     return;
   }
   try {
-    const record = await loadFromBin();
-    pool  = record._pool  || [];
-    draws = record._draws || {};
-    /* First person to draw initialises the pool */
-    if (pool.length === 0) {
-      pool = buildPool();
-      await saveToBin({ _pool: pool, _draws: draws });
-    }
+    draws = await loadFromBin();
   } catch(e) {
     showError("Could not load draws. Check your JSONBin config.");
     document.getElementById("stat-drawn").textContent = "?";
@@ -303,7 +293,7 @@ async function loadDraws() {
 }
 
 function getUsed()      { return Object.values(draws).map(d => d.country); }
-function getAvailable() { return pool.filter(t => !getUsed().includes(t.name)); }
+function getAvailable() { return POOL.filter(t => !getUsed().includes(t.name)); }
 
 function showError(msg) {
   const el = document.getElementById("error-msg");
@@ -335,7 +325,7 @@ async function handleDraw() {
   await loadDraws();
 
   if (draws[key]) {
-    const team = pool.find(t => t.name === draws[key].country);
+    const team = POOL.find(t => t.name === draws[key].country);
     showInfo(`You already drew ${team ? team.flag : ""} ${draws[key].country}!`);
     triggerReveal(team ? team.flag : "🏳️", draws[key].country, `Already drawn, ${draws[key].name}!`);
     btn.disabled = false; btn.textContent = "Draw ⚽";
@@ -360,7 +350,7 @@ async function handleDraw() {
 
   saving = true;
   try {
-    await saveToBin({ _pool: pool, _draws: draws });
+    await saveToBin(draws);
   } catch(e) {
     showError("Draw worked but couldn't save — try again.");
     delete draws[key];
@@ -413,7 +403,7 @@ function normalizeName(n) {
 // STEP 2 CONFIG — paste your Cloudflare Worker URL here
 // after deploying wc2026-worker.js
 // =====================================================
-const WORKER_URL = "YOUR_WORKER_URL_HERE";
+const WORKER_URL = "https://wc2026-workerjs.rcooketuam.workers.dev";
 // =====================================================
 
 const REFRESH_MS = 3 * 60 * 1000; // auto-refresh every 3 minutes
@@ -433,7 +423,7 @@ function switchTab(tab, btn) {
 
 /* ── LIVE DATA ── */
 function workerOk() {
-  return WORKER_URL !== "https://wc2026-workerjs.rcooketuam.workers.dev";
+  return WORKER_URL !== "YOUR_WORKER_URL_HERE";
 }
 
 function lastUpdatedHtml(iso) {
