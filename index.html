@@ -136,8 +136,8 @@
      3. New Bin → create with {} → paste Bin ID below
      ===================================================== -->
 <script>
-  const JSONBIN_API_KEY = "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma";
-  const JSONBIN_BIN_ID  = "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
+  const JSONBIN_API_KEY = "YOUR_API_KEY_HERE";
+  const JSONBIN_BIN_ID  = "YOUR_BIN_ID_HERE";
 </script>
 
 <header>
@@ -246,7 +246,8 @@ let pool  = [];
 let saving = false;
 
 function configOk() {
-  return JSONBIN_API_KEY !== "YOUR_API_KEY_HERE" && JSONBIN_BIN_ID !== "YOUR_BIN_ID_HERE";
+  return JSONBIN_API_KEY !== "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma" 
+  && JSONBIN_BIN_ID !== "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
 }
 
 /* Pick 20 random from REST to make pool of 30 */
@@ -392,138 +393,160 @@ function render() {
     </div>`).join("");
 }
 
+// =====================================================
+// STEP 2 CONFIG — paste your Cloudflare Worker URL here
+// after deploying wc2026-worker.js
+// =====================================================
+const WORKER_URL = "https://wc2026-workerjs.rcooketuam.workers.dev";
+// =====================================================
+
+const REFRESH_MS = 3 * 60 * 1000; // auto-refresh every 3 minutes
+let refreshTimer = null;
+let activeTab = "draw";
+
 /* ── TABS ── */
-function switchTab(tab) {
+function switchTab(tab, btn) {
   document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   document.getElementById("tab-" + tab).classList.add("active");
-  event.target.classList.add("active");
+  btn.classList.add("active");
+  activeTab = tab;
   if (tab === "fixtures")  loadFixtures();
   if (tab === "standings") loadStandings();
 }
 
-/* ── FIXTURES ── */
-const ABBR_TO_FLAG = {
-  BRA:"🇧🇷",FRA:"🇫🇷",ENG:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",ARG:"🇦🇷",ESP:"🇪🇸",GER:"🇩🇪",POR:"🇵🇹",
-  NED:"🇳🇱",USA:"🇺🇸",COL:"🇨🇴",MEX:"🇲🇽",JPN:"🇯🇵",MAR:"🇲🇦",URU:"🇺🇾",
-  BEL:"🇧🇪",CRO:"🇭🇷",SUI:"🇨🇭",KOR:"🇰🇷",ECU:"🇪🇨",SEN:"🇸🇳",AUS:"🇦🇺",
-  CAN:"🇨🇦",NOR:"🇳🇴",TUN:"🇹🇳",EGY:"🇪🇬",SCO:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",DZA:"🇩🇿",AUT:"🇦🇹",
-  PAR:"🇵🇾",QAT:"🇶🇦",SRB:"🇷🇸",POL:"🇵🇱",UKR:"🇺🇦",DEN:"🇩🇰",GHA:"🇬🇭",
-  NGA:"🇳🇬",CIV:"🇨🇮",KSA:"🇸🇦",IRN:"🇮🇷",COD:"🇨🇩",HTI:"🇭🇹",CPV:"🇨🇻",
-  IRQ:"🇮🇶",JOR:"🇯🇴",RSA:"🇿🇦",UZB:"🇺🇿",BIH:"🇧🇦",CUW:"🇨🇼",CZE:"🇨🇿",
-  SWE:"🇸🇪",TUR:"🇹🇷",SCO:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-};
+/* ── LIVE DATA ── */
+function workerOk() {
+  return WORKER_URL !== "YOUR_WORKER_URL_HERE";
+}
 
-async function loadFixtures() {
+function lastUpdatedHtml(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const t = d.toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" });
+  return `<div style="font-size:11px;color:var(--muted);margin-top:1rem;text-align:right">Updated ${t} BST</div>`;
+}
+
+async function fetchFromWorker(type) {
+  if (!workerOk()) return null;
+  const r = await fetch(`${WORKER_URL}?type=${type}`);
+  if (!r.ok) throw new Error(`Worker error ${r.status}`);
+  return r.json();
+}
+
+/* ── FIXTURES ── */
+async function loadFixtures(silent = false) {
   const el = document.getElementById("fixtures-list");
-  el.innerHTML = '<div class="loading-state">Loading fixtures...</div>';
+  if (!silent) el.innerHTML = '<div class="loading-state">Loading fixtures...</div>';
+
+  if (!workerOk()) {
+    el.innerHTML = '<div class="loading-state">⚠️ Set WORKER_URL in the HTML to enable live fixtures.</div>';
+    return;
+  }
+
   try {
-    const r = await fetch("https://api.thesportsdb.com/v1/json/3/eventsround.php?id=4887&r=1&s=2026");
-    // fallback to embedded data
-    renderFixtures(CACHED_FIXTURES);
+    const data = await fetchFromWorker("scores");
+    renderFixtures(data.games, data.updated);
   } catch(e) {
-    renderFixtures(CACHED_FIXTURES);
+    if (!silent) el.innerHTML = `<div class="loading-state">Could not load fixtures — ${e.message}</div>`;
   }
 }
 
-const CACHED_FIXTURES = [
-  {home:"ECU",away:"CUW",scoreH:0,scoreA:0,status:"final",time:"Sun Jun 21"},
-  {home:"TUN",away:"JPN",scoreH:0,scoreA:4,status:"final",time:"Sun Jun 21"},
-  {home:"ESP",away:"KSA",scoreH:4,scoreA:0,status:"final",time:"Sun Jun 21"},
-  {home:"BEL",away:"IRN",scoreH:0,scoreA:0,status:"final",time:"Sun Jun 21"},
-  {home:"URU",away:"CPV",scoreH:2,scoreA:2,status:"final",time:"Sun Jun 21"},
-  {home:"NZL",away:"EGY",scoreH:1,scoreA:3,status:"final",time:"Mon Jun 22"},
-  {home:"ARG",away:"AUT",scoreH:2,scoreA:0,status:"final",time:"Mon Jun 22"},
-  {home:"FRA",away:"IRQ",scoreH:3,scoreA:0,status:"final",time:"Mon Jun 22"},
-  {home:"NOR",away:"SEN",scoreH:3,scoreA:2,status:"final",time:"Tue Jun 23"},
-  {home:"JOR",away:"DZA",scoreH:1,scoreA:2,status:"final",time:"Tue Jun 23"},
-  {home:"POR",away:"UZB",scoreH:0,scoreA:0,status:"scheduled",time:"Tue Jun 23 · 6PM BST",probH:85.8,probA:4.2,probD:10},
-  {home:"ENG",away:"GHA",scoreH:0,scoreA:0,status:"scheduled",time:"Tue Jun 23 · 9PM BST",probH:81.7,probA:5.6,probD:12.7},
-  {home:"PAN",away:"CRO",scoreH:0,scoreA:0,status:"scheduled",time:"Wed Jun 24 · 12AM BST",probH:14.4,probA:64.7,probD:20.9},
-  {home:"COL",away:"COD",scoreH:0,scoreA:0,status:"scheduled",time:"Wed Jun 24 · 3AM BST",probH:62.6,probA:14.1,probD:23.3},
-  {home:"SUI",away:"CAN",scoreH:0,scoreA:0,status:"scheduled",time:"Wed Jun 24 · 8PM BST",probH:39.9,probA:29.1,probD:31},
-  {home:"BIH",away:"QAT",scoreH:0,scoreA:0,status:"scheduled",time:"Wed Jun 24 · 8PM BST",probH:69.5,probA:12.4,probD:18.1},
-  {home:"SCO",away:"BRA",scoreH:0,scoreA:0,status:"scheduled",time:"Wed Jun 24 · 11PM BST",probH:11.1,probA:70.6,probD:18.3},
-  {home:"MAR",away:"HTI",scoreH:0,scoreA:0,status:"scheduled",time:"Wed Jun 24 · 11PM BST",probH:82.8,probA:5.3,probD:11.9},
-  {home:"CZE",away:"MEX",scoreH:0,scoreA:0,status:"scheduled",time:"Thu Jun 25 · 2AM BST",probH:25,probA:49.8,probD:25.2},
-  {home:"RSA",away:"KOR",scoreH:0,scoreA:0,status:"scheduled",time:"Thu Jun 25 · 2AM BST",probH:18,probA:57.3,probD:24.7},
-];
-
-function renderFixtures(games) {
+function renderFixtures(games, updated) {
   const el = document.getElementById("fixtures-list");
   if (!games || !games.length) { el.innerHTML = '<div class="loading-state">No fixtures available.</div>'; return; }
   el.innerHTML = games.map(g => {
-    const fH = ABBR_TO_FLAG[g.home] || "🏳️";
-    const fA = ABBR_TO_FLAG[g.away] || "🏳️";
-    const isFinal = g.status === "final";
-    const isLive  = g.status === "live";
+    const fH = g.homeFlag || "🏳️";
+    const fA = g.awayFlag || "🏳️";
+    const isFinal = g.status === "closed" || g.status === "final";
+    const isLive  = g.status === "inprogress" || g.status === "live";
     let scoreHtml = "";
     if (isFinal) {
       scoreHtml = `<div class="fixture-score">${g.scoreH} – ${g.scoreA}<span class="score-status">FT</span></div>`;
     } else if (isLive) {
       scoreHtml = `<div class="fixture-score"><span class="live-dot"></span>${g.scoreH} – ${g.scoreA}</div>`;
     } else {
-      scoreHtml = `<div class="fixture-score" style="font-size:13px;color:var(--muted);font-weight:600">vs<span class="score-time">${g.time}</span></div>`;
+      scoreHtml = `<div class="fixture-score" style="font-size:12px;color:var(--muted);font-weight:600;line-height:1.4">vs<span class="score-time">${g.time}</span></div>`;
     }
-    let probHtml = "";
-    if (g.probH !== undefined && !isFinal) {
-      probHtml = `<div class="prob-bar">
-        <div class="prob-seg" style="width:${g.probH}%;background:var(--green);opacity:0.7"></div>
-        <div class="prob-seg" style="width:${g.probD}%;background:var(--muted);opacity:0.5"></div>
-        <div class="prob-seg" style="width:${g.probA}%;background:var(--red);opacity:0.7"></div>
-      </div>`;
-    }
+    const probH = g.probH != null ? Math.round(g.probH) : null;
+    const probA = g.probA != null ? Math.round(g.probA) : null;
+    const probD = g.probD != null ? Math.round(g.probD) : null;
+    const probHtml = (probH != null && !isFinal) ? `<div class="prob-bar">
+      <div class="prob-seg" style="width:${probH}%;background:var(--green);opacity:0.7" title="${probH}% home"></div>
+      <div class="prob-seg" style="width:${probD}%;background:var(--muted);opacity:0.5" title="${probD}% draw"></div>
+      <div class="prob-seg" style="width:${probA}%;background:var(--red);opacity:0.7" title="${probA}% away"></div>
+    </div>` : "";
+    const homeName = g.homeName || g.home;
+    const awayName = g.awayName || g.away;
     return `<div>
       <div class="fixture-item">
-        <div class="fixture-team"><span class="fixture-flag-sm">${fH}</span><span class="name">${g.home}</span></div>
+        <div class="fixture-team"><span class="fixture-flag-sm">${fH}</span><span class="name">${homeName}</span></div>
         ${scoreHtml}
-        <div class="fixture-team right"><span class="name">${g.away}</span><span class="fixture-flag-sm">${fA}</span></div>
-      </div>
-      ${probHtml}
-    </div>`;
-  }).join("");
+        <div class="fixture-team right"><span class="name">${awayName}</span><span class="fixture-flag-sm">${fA}</span></div>
+      </div>${probHtml}</div>`;
+  }).join("") + lastUpdatedHtml(updated);
 }
 
 /* ── STANDINGS ── */
-const CACHED_STANDINGS = [
-  {group:"A",teams:[{abbr:"MEX",name:"Mexico",flag:"🇲🇽",w:2,d:0,l:0,pts:6},{abbr:"KOR",name:"Korea Republic",flag:"🇰🇷",w:1,d:0,l:1,pts:3},{abbr:"CZE",name:"Czechia",flag:"🇨🇿",w:0,d:1,l:1,pts:1},{abbr:"RSA",name:"South Africa",flag:"🇿🇦",w:0,d:1,l:1,pts:1}]},
-  {group:"B",teams:[{abbr:"CAN",name:"Canada",flag:"🇨🇦",w:1,d:1,l:0,pts:4},{abbr:"SUI",name:"Switzerland",flag:"🇨🇭",w:1,d:1,l:0,pts:4},{abbr:"BIH",name:"Bosnia & Herz.",flag:"🇧🇦",w:0,d:1,l:1,pts:1},{abbr:"QAT",name:"Qatar",flag:"🇶🇦",w:0,d:1,l:1,pts:1}]},
-  {group:"C",teams:[{abbr:"BRA",name:"Brazil",flag:"🇧🇷",w:1,d:1,l:0,pts:4},{abbr:"MAR",name:"Morocco",flag:"🇲🇦",w:1,d:1,l:0,pts:4},{abbr:"SCO",name:"Scotland",flag:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",w:1,d:0,l:1,pts:3},{abbr:"HTI",name:"Haiti",flag:"🇭🇹",w:0,d:0,l:2,pts:0}]},
-  {group:"D",teams:[{abbr:"USA",name:"USA",flag:"🇺🇸",w:2,d:0,l:0,pts:6},{abbr:"AUS",name:"Australia",flag:"🇦🇺",w:1,d:0,l:1,pts:3},{abbr:"PAR",name:"Paraguay",flag:"🇵🇾",w:1,d:0,l:1,pts:3},{abbr:"TUR",name:"Turkiye",flag:"🇹🇷",w:0,d:0,l:2,pts:0}]},
-  {group:"E",teams:[{abbr:"GER",name:"Germany",flag:"🇩🇪",w:2,d:0,l:0,pts:6},{abbr:"CIV",name:"Ivory Coast",flag:"🇨🇮",w:1,d:0,l:1,pts:3},{abbr:"ECU",name:"Ecuador",flag:"🇪🇨",w:0,d:1,l:1,pts:1},{abbr:"CUW",name:"Curacao",flag:"🇨🇼",w:0,d:1,l:1,pts:1}]},
-  {group:"F",teams:[{abbr:"NED",name:"Netherlands",flag:"🇳🇱",w:1,d:1,l:0,pts:4},{abbr:"JPN",name:"Japan",flag:"🇯🇵",w:1,d:1,l:0,pts:4},{abbr:"SWE",name:"Sweden",flag:"🇸🇪",w:1,d:0,l:1,pts:3},{abbr:"TUN",name:"Tunisia",flag:"🇹🇳",w:0,d:0,l:2,pts:0}]},
-  {group:"G",teams:[{abbr:"EGY",name:"Egypt",flag:"🇪🇬",w:1,d:1,l:0,pts:4},{abbr:"IRN",name:"IR Iran",flag:"🇮🇷",w:0,d:2,l:0,pts:2},{abbr:"BEL",name:"Belgium",flag:"🇧🇪",w:0,d:2,l:0,pts:2},{abbr:"NZL",name:"New Zealand",flag:"🇳🇿",w:0,d:1,l:1,pts:1}]},
-  {group:"H",teams:[{abbr:"ESP",name:"Spain",flag:"🇪🇸",w:1,d:1,l:0,pts:4},{abbr:"URU",name:"Uruguay",flag:"🇺🇾",w:0,d:2,l:0,pts:2},{abbr:"CPV",name:"Cape Verde",flag:"🇨🇻",w:0,d:2,l:0,pts:2},{abbr:"KSA",name:"Saudi Arabia",flag:"🇸🇦",w:0,d:1,l:1,pts:1}]},
-  {group:"I",teams:[{abbr:"FRA",name:"France",flag:"🇫🇷",w:2,d:0,l:0,pts:6},{abbr:"NOR",name:"Norway",flag:"🇳🇴",w:2,d:0,l:0,pts:6},{abbr:"SEN",name:"Senegal",flag:"🇸🇳",w:0,d:0,l:2,pts:0},{abbr:"IRQ",name:"Iraq",flag:"🇮🇶",w:0,d:0,l:2,pts:0}]},
-  {group:"J",teams:[{abbr:"ARG",name:"Argentina",flag:"🇦🇷",w:2,d:0,l:0,pts:6},{abbr:"AUT",name:"Austria",flag:"🇦🇹",w:1,d:0,l:1,pts:3},{abbr:"DZA",name:"Algeria",flag:"🇩🇿",w:1,d:0,l:1,pts:3},{abbr:"JOR",name:"Jordan",flag:"🇯🇴",w:0,d:0,l:2,pts:0}]},
-  {group:"K",teams:[{abbr:"COL",name:"Colombia",flag:"🇨🇴",w:1,d:0,l:0,pts:3},{abbr:"COD",name:"Congo DR",flag:"🇨🇩",w:0,d:1,l:0,pts:1},{abbr:"POR",name:"Portugal",flag:"🇵🇹",w:0,d:1,l:0,pts:1},{abbr:"UZB",name:"Uzbekistan",flag:"🇺🇿",w:0,d:0,l:1,pts:0}]},
-  {group:"L",teams:[{abbr:"ENG",name:"England",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",w:1,d:0,l:0,pts:3},{abbr:"GHA",name:"Ghana",flag:"🇬🇭",w:1,d:0,l:0,pts:3},{abbr:"PAN",name:"Panama",flag:"🇵🇦",w:0,d:0,l:1,pts:0},{abbr:"CRO",name:"Croatia",flag:"🇭🇷",w:0,d:0,l:1,pts:0}]},
-];
-
-function loadStandings() {
+async function loadStandings(silent = false) {
   const el = document.getElementById("standings-list");
-  el.innerHTML = CACHED_STANDINGS.map(g => `
+  if (!silent) el.innerHTML = '<div class="loading-state">Loading standings...</div>';
+
+  if (!workerOk()) {
+    el.innerHTML = '<div class="loading-state">⚠️ Set WORKER_URL in the HTML to enable live standings.</div>';
+    return;
+  }
+
+  try {
+    const data = await fetchFromWorker("standings");
+    renderStandings(data.groups, data.updated);
+  } catch(e) {
+    if (!silent) el.innerHTML = `<div class="loading-state">Could not load standings — ${e.message}</div>`;
+  }
+}
+
+function renderStandings(groups, updated) {
+  const el = document.getElementById("standings-list");
+  if (!groups || !groups.length) { el.innerHTML = '<div class="loading-state">No standings available.</div>'; return; }
+  el.innerHTML = groups.map(g => `
     <div class="group-block">
       <div class="group-title">Group ${g.group}</div>
       <table class="standings">
-        <thead><tr><th>Team</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead>
+        <thead><tr><th>Team</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead>
         <tbody>
           ${g.teams.map((t, i) => `
             <tr class="${i < 2 ? 'qualified' : ''}">
               <td><div class="team-cell">${t.flag} ${t.name}</div></td>
               <td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
+              <td style="color:${(t.gd||0)>=0?'var(--green)':'var(--red)'}">${(t.gd||0)>0?'+':''}${t.gd||0}</td>
               <td class="pts">${t.pts}</td>
             </tr>`).join("")}
         </tbody>
       </table>
-    </div>`).join("");
+    </div>`).join("") + lastUpdatedHtml(updated);
+}
+
+/* ── AUTO-REFRESH ── */
+function startRefresh() {
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    if (activeTab === "fixtures")  loadFixtures(true);
+    if (activeTab === "standings") loadStandings(true);
+  }, REFRESH_MS);
 }
 
 document.getElementById("name-input").addEventListener("keydown", e => {
   if (e.key === "Enter") handleDraw();
 });
 
+// Update tab onclick to pass button ref
+document.querySelectorAll(".tab").forEach(btn => {
+  const tab = btn.getAttribute("onclick").match(/'(\w+)'/)?.[1];
+  if (tab) btn.setAttribute("onclick", `switchTab('${tab}', this)`);
+});
+
 loadDraws();
+startRefresh();
 </script>
 </body>
 </html>
