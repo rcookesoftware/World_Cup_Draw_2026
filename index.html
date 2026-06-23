@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>World Cup 2026 Draw</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f5f5f5;
+    color: #111;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .container { max-width: 720px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  header p {
+    font-size: 15px;
+    color: #555;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e0e0e0;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .card h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #111;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    height: 40px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="text"]:focus { border-color: #7F77DD; }
+
+  .btn {
+    height: 40px;
+    padding: 0 20px;
+    background: #7F77DD;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: #534AB7; }
+  .btn:disabled { background: #c0bce8; cursor: default; }
+
+  .btn-sm {
+    height: 32px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+
+  .msg {
+    margin-top: 12px;
+    font-size: 14px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    display: none;
+  }
+  .msg.show { display: block; }
+  .msg.error { background: #fdecea; color: #b71c1c; }
+  .msg.info  { background: #ede7ff; color: #3c2baa; }
+
+  .reveal {
+    display: none;
+    margin-top: 1.5rem;
+    text-align: center;
+    background: #f9f8ff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #e0dcff;
+  }
+  .reveal.show { display: block; }
+  .reveal-flag { font-size: 64px; margin-bottom: 8px; }
+  .reveal-country { font-size: 24px; font-weight: 600; }
+  .reveal-sub { font-size: 14px; color: #666; margin-top: 6px; }
+
+  .stats {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+  .stat {
+    flex: 1;
+    background: #f5f5f5;
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-num { font-size: 26px; font-weight: 600; }
+  .stat-lbl { font-size: 12px; color: #666; margin-top: 2px; }
+
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+    gap: 10px;
+  }
+
+  .result-item {
+    background: #f9f9f9;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid #eee;
+  }
+  .result-flag { font-size: 26px; }
+  .result-info { min-width: 0; }
+  .result-country { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result-person  { font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .empty { text-align: center; padding: 2rem; color: #999; font-size: 14px; }
+
+  .section-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #888;
+    margin-bottom: 12px;
+  }
+
+  .config-notice {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14px;
+    color: #5d4037;
+    margin-bottom: 1.25rem;
+    line-height: 1.6;
+  }
+  .config-notice code {
+    background: #fff3cd;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 13px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .top-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    .input-row { flex-direction: column; }
+    .btn { width: 100%; }
+    .stats { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- =====================================================
+     CONFIGURATION — fill these in before deploying
+     =====================================================
+     1. Go to https://jsonbin.io and sign up (free)
+     2. Go to API Keys → Create Access Key → copy it below
+     3. Click "New Bin", create an empty bin {} → copy the Bin ID below
+     ===================================================== -->
+<script>
+  const JSONBIN_API_KEY = "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma";
+  const JSONBIN_BIN_ID  = "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
+</script>
+<!-- ===================================================== -->
+
+<div class="container">
+
+  <header>
+    <h1>🏆 World Cup 2026 Draw</h1>
+    <p>Enter your name and draw your team — each country can only be claimed once.</p>
+  </header>
+
+  <div id="config-warning" class="config-notice" style="display:none">
+    ⚠️ <strong>Setup needed:</strong> Open this file and set <code>JSONBIN_API_KEY</code> and <code>JSONBIN_BIN_ID</code> at the top of the script section. See comments inside the file for instructions.
+  </div>
+
+  <div class="card">
+    <h2>Draw your team</h2>
+    <div class="input-row">
+      <input type="text" id="name-input" placeholder="Your name" maxlength="50" autocomplete="off" />
+      <button class="btn" id="draw-btn" onclick="handleDraw()">Draw ⚽</button>
+    </div>
+    <div class="msg error" id="error-msg"></div>
+    <div class="msg info"  id="info-msg"></div>
+    <div class="reveal" id="reveal-box">
+      <div class="reveal-flag" id="reveal-flag"></div>
+      <div class="reveal-country" id="reveal-country"></div>
+      <div class="reveal-sub" id="reveal-sub"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num" id="stat-drawn">—</div>
+        <div class="stat-lbl">Drawn</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="stat-remaining">—</div>
+        <div class="stat-lbl">Remaining</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="stat-total">48</div>
+        <div class="stat-lbl">Total teams</div>
+      </div>
+    </div>
+    <div class="section-label">Results</div>
+    <div class="results-grid" id="results-grid">
+      <div class="empty">Loading...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const TEAMS = [
+  {name:"Argentina",flag:"🇦🇷"},{name:"Australia",flag:"🇦🇺"},{name:"Belgium",flag:"🇧🇪"},
+  {name:"Brazil",flag:"🇧🇷"},{name:"Cameroon",flag:"🇨🇲"},{name:"Canada",flag:"🇨🇦"},
+  {name:"Chile",flag:"🇨🇱"},{name:"Colombia",flag:"🇨🇴"},{name:"Costa Rica",flag:"🇨🇷"},
+  {name:"Croatia",flag:"🇭🇷"},{name:"Denmark",flag:"🇩🇰"},{name:"Ecuador",flag:"🇪🇨"},
+  {name:"Egypt",flag:"🇪🇬"},{name:"England",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿"},{name:"France",flag:"🇫🇷"},
+  {name:"Germany",flag:"🇩🇪"},{name:"Ghana",flag:"🇬🇭"},{name:"Honduras",flag:"🇭🇳"},
+  {name:"Indonesia",flag:"🇮🇩"},{name:"Iran",flag:"🇮🇷"},{name:"Japan",flag:"🇯🇵"},
+  {name:"Kenya",flag:"🇰🇪"},{name:"Mexico",flag:"🇲🇽"},{name:"Morocco",flag:"🇲🇦"},
+  {name:"Netherlands",flag:"🇳🇱"},{name:"New Zealand",flag:"🇳🇿"},{name:"Nigeria",flag:"🇳🇬"},
+  {name:"Panama",flag:"🇵🇦"},{name:"Paraguay",flag:"🇵🇾"},{name:"Peru",flag:"🇵🇪"},
+  {name:"Poland",flag:"🇵🇱"},{name:"Portugal",flag:"🇵🇹"},{name:"Qatar",flag:"🇶🇦"},
+  {name:"Republic of Ireland",flag:"🇮🇪"},{name:"Saudi Arabia",flag:"🇸🇦"},{name:"Senegal",flag:"🇸🇳"},
+  {name:"Serbia",flag:"🇷🇸"},{name:"Slovenia",flag:"🇸🇮"},{name:"South Korea",flag:"🇰🇷"},
+  {name:"Spain",flag:"🇪🇸"},{name:"Switzerland",flag:"🇨🇭"},{name:"Trinidad & Tobago",flag:"🇹🇹"},
+  {name:"Tunisia",flag:"🇹🇳"},{name:"Turkey",flag:"🇹🇷"},{name:"Ukraine",flag:"🇺🇦"},
+  {name:"United States",flag:"🇺🇸"},{name:"Uruguay",flag:"🇺🇾"},{name:"Venezuela",flag:"🇻🇪"}
+];
+
+const BASE = "https://api.jsonbin.io/v3/b";
+let draws = {};
+let saving = false;
+
+function configOk() {
+  return JSONBIN_API_KEY !== "YOUR_API_KEY_HERE" && JSONBIN_BIN_ID !== "YOUR_BIN_ID_HERE";
+}
+
+async function loadDraws() {
+  if (!configOk()) {
+    document.getElementById("config-warning").style.display = "block";
+    document.getElementById("results-grid").innerHTML = '<div class="empty">Configure JSONBin to get started.</div>';
+    document.getElementById("stat-drawn").textContent = "—";
+    document.getElementById("stat-remaining").textContent = "—";
+    return;
+  }
+  try {
+    const r = await fetch(`${BASE}/${JSONBIN_BIN_ID}/latest`, {
+      headers: { "X-Master-Key": JSONBIN_API_KEY }
+    });
+    const j = await r.json();
+    draws = j.record || {};
+  } catch(e) {
+    draws = {};
+    showError("Could not load draws. Check your JSONBin config.");
+  }
+  render();
+}
+
+async function saveDraws() {
+  await fetch(`${BASE}/${JSONBIN_BIN_ID}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Master-Key": JSONBIN_API_KEY
+    },
+    body: JSON.stringify(draws)
+  });
+}
+
+function getUsed() { return Object.values(draws).map(d => d.country); }
+function getAvailable() { return TEAMS.filter(t => !getUsed().includes(t.name)); }
+
+function showError(msg) {
+  const el = document.getElementById("error-msg");
+  el.textContent = msg; el.classList.add("show");
+  document.getElementById("info-msg").classList.remove("show");
+}
+function showInfo(msg) {
+  const el = document.getElementById("info-msg");
+  el.textContent = msg; el.classList.add("show");
+  document.getElementById("error-msg").classList.remove("show");
+}
+function clearMsgs() {
+  document.getElementById("error-msg").classList.remove("show");
+  document.getElementById("info-msg").classList.remove("show");
+}
+
+async function handleDraw() {
+  if (saving) return;
+  const name = document.getElementById("name-input").value.trim();
+  if (!name) { document.getElementById("name-input").focus(); return; }
+  if (!configOk()) { showError("JSONBin not configured — see the file comments."); return; }
+
+  const key = name.toLowerCase();
+  clearMsgs();
+
+  const btn = document.getElementById("draw-btn");
+  btn.disabled = true;
+  btn.innerHTML = 'Drawing <span class="spinner"></span>';
+
+  await loadDraws();
+
+  if (draws[key]) {
+    const team = TEAMS.find(t => t.name === draws[key].country);
+    showInfo(`You already drew ${team ? team.flag : ""} ${draws[key].country}!`);
+    document.getElementById("reveal-flag").textContent = team ? team.flag : "";
+    document.getElementById("reveal-country").textContent = draws[key].country;
+    document.getElementById("reveal-sub").textContent = `Better luck next time, ${draws[key].name}!`;
+    document.getElementById("reveal-box").classList.add("show");
+    btn.disabled = false; btn.textContent = "Draw ⚽";
+    return;
+  }
+
+  const available = getAvailable();
+  if (available.length === 0) {
+    showError("All 48 teams have been drawn — the sweepstake is full!");
+    btn.disabled = false; btn.textContent = "Draw ⚽";
+    return;
+  }
+
+  const pick = available[Math.floor(Math.random() * available.length)];
+  draws[key] = { name, country: pick.name, flag: pick.flag };
+
+  saving = true;
+  try {
+    await saveDraws();
+  } catch(e) {
+    showError("Draw worked but couldn't save — try again.");
+    delete draws[key];
+    saving = false;
+    btn.disabled = false; btn.textContent = "Draw ⚽";
+    return;
+  }
+  saving = false;
+
+  document.getElementById("reveal-flag").textContent = pick.flag;
+  document.getElementById("reveal-country").textContent = pick.name;
+  document.getElementById("reveal-sub").textContent = `Good luck, ${name}! 🎉`;
+  document.getElementById("reveal-box").classList.add("show");
+  clearMsgs();
+  render();
+
+  btn.disabled = false; btn.textContent = "Draw ⚽";
+}
+
+function render() {
+  const entries = Object.values(draws).sort((a,b) => a.name.localeCompare(b.name));
+  document.getElementById("stat-drawn").textContent = entries.length;
+  document.getElementById("stat-remaining").textContent = 48 - entries.length;
+
+  const grid = document.getElementById("results-grid");
+  if (entries.length === 0) {
+    grid.innerHTML = '<div class="empty">No draws yet — be the first!</div>';
+    return;
+  }
+  grid.innerHTML = entries.map(d => `
+    <div class="result-item">
+      <span class="result-flag">${d.flag}</span>
+      <div class="result-info">
+        <div class="result-country">${d.country}</div>
+        <div class="result-person">${d.name}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+document.getElementById("name-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") handleDraw();
+});
+
+loadDraws();
+</script>
+</body>
+</html>
