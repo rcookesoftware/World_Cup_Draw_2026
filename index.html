@@ -179,8 +179,8 @@
 
     <div class="card">
       <div class="stats">
-        <div class="stat"><div class="stat-num" id="stat-drawn">—</div><div class="stat-lbl">Drawn</div></div>
-        <div class="stat"><div class="stat-num" id="stat-remaining">—</div><div class="stat-lbl">Remaining</div></div>
+        <div class="stat"><div class="stat-num" id="stat-drawn">...</div><div class="stat-lbl">Drawn</div></div>
+        <div class="stat"><div class="stat-num" id="stat-remaining">...</div><div class="stat-lbl">Remaining</div></div>
         <div class="stat"><div class="stat-num">30</div><div class="stat-lbl">Total</div></div>
       </div>
       <div class="progress-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
@@ -247,14 +247,12 @@ let pool  = [];
 let saving = false;
 
 function configOk() {
-  return JSONBIN_API_KEY !== "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma" 
-  && JSONBIN_BIN_ID !== "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
+  return JSONBIN_API_KEY !== "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma" && JSONBIN_BIN_ID !== "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
 }
 
-/* Pick 20 random from REST to make pool of 30 */
+/* All 48 teams in the pool */
 function buildPool() {
-  const shuffled = [...REST].sort(() => Math.random() - 0.5);
-  return [...SEEDED, ...shuffled.slice(0, 20)];
+  return [...SEEDED, ...REST];
 }
 
 async function loadFromBin() {
@@ -291,9 +289,11 @@ async function loadDraws() {
       await saveToBin({ _pool: pool, _draws: draws });
     }
   } catch(e) {
-    pool  = buildPool();
-    draws = {};
     showError("Could not load draws. Check your JSONBin config.");
+    document.getElementById("stat-drawn").textContent = "?";
+    document.getElementById("stat-remaining").textContent = "?";
+    document.getElementById("results-grid").innerHTML = '<div class="empty">Could not connect — refresh to try again.</div>';
+    return;
   }
   render();
 }
@@ -322,7 +322,7 @@ async function handleDraw() {
   if (!name) { document.getElementById("name-input").focus(); return; }
   if (!configOk()) { showError("JSONBin not configured — see the file comments."); return; }
 
-  const key = name.toLowerCase();
+  const key = normalizeName(name);
   clearMsgs();
   const btn = document.getElementById("draw-btn");
   btn.disabled = true;
@@ -340,7 +340,7 @@ async function handleDraw() {
 
   const available = getAvailable();
   if (available.length === 0) {
-    showError("All 30 teams have been drawn — the sweepstake is full!");
+    showError("All 48 teams have been drawn — the sweepstake is full!");
     btn.disabled = false; btn.textContent = "Draw ⚽";
     return;
   }
@@ -379,9 +379,10 @@ function triggerReveal(flag, country, sub) {
 function render() {
   const entries = Object.values(draws).sort((a,b) => a.name.localeCompare(b.name));
   const drawn   = entries.length;
+  const total   = pool.length || 30;
   document.getElementById("stat-drawn").textContent     = drawn;
-  document.getElementById("stat-remaining").textContent = 30 - drawn;
-  document.getElementById("progress-bar").style.width   = Math.round((drawn / 30) * 100) + "%";
+  document.getElementById("stat-remaining").textContent = total - drawn;
+  document.getElementById("progress-bar").style.width   = Math.round((drawn / total) * 100) + "%";
   const grid = document.getElementById("results-grid");
   if (!entries.length) { grid.innerHTML = '<div class="empty">No draws yet — be the first!</div>'; return; }
   grid.innerHTML = entries.map(d => `
@@ -392,6 +393,11 @@ function render() {
         <div class="result-person">${d.name}</div>
       </div>
     </div>`).join("");
+}
+
+// Normalize name for duplicate checking — lowercase, trim, collapse spaces
+function normalizeName(n) {
+  return n.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
 // =====================================================
@@ -418,7 +424,7 @@ function switchTab(tab, btn) {
 
 /* ── LIVE DATA ── */
 function workerOk() {
-  return WORKER_URL !== "YOUR_WORKER_URL_HERE";
+  return WORKER_URL !== "https://wc2026-workerjs.rcooketuam.workers.dev";
 }
 
 function lastUpdatedHtml(iso) {
