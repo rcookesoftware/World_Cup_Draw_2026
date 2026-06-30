@@ -109,6 +109,23 @@
   table.standings .qualified { background: rgba(0,165,80,0.08); }
   .team-cell { display:flex; align-items:center; gap:6px; }
 
+  /* KNOCKOUT BRACKET */
+  .ko-round { margin-bottom: 1.75rem; }
+  .ko-round:last-child { margin-bottom: 0; }
+  .ko-round-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold); margin-bottom: 10px; }
+  .ko-match { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:10px 12px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; margin-bottom:8px; }
+  .ko-match:last-child { margin-bottom: 0; }
+  .ko-team { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; min-width:0; overflow:hidden; }
+  .ko-team.right { flex-direction:row-reverse; justify-content:flex-start; text-align:right; }
+  .ko-team .name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ko-team.eliminated { opacity: 0.4; text-decoration: line-through; }
+  .ko-team.winner { color: var(--gold); }
+  .ko-team.tbd { color: var(--muted); font-style: italic; font-weight: 500; }
+  .ko-flag-sm { font-size:20px; flex-shrink:0; }
+  .ko-score { font-size:15px; font-weight:900; color:var(--gold); text-align:center; min-width:50px; }
+  .ko-score .ko-status { font-size:9px; font-weight:700; text-transform:uppercase; color:var(--muted); display:block; margin-top:1px; }
+  .ko-claimed-badge { font-size:9px; font-weight:700; background:var(--green); color:#fff; padding:1px 6px; border-radius:99px; margin-left:6px; text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap; }
+
   /* CONFIG */
   .config-notice { background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.3); border-radius:12px; padding:14px 16px; font-size:14px; color:var(--gold); margin-bottom:1.25rem; line-height:1.6; }
   .config-notice code { background:rgba(255,215,0,0.15); padding:1px 6px; border-radius:4px; font-family:monospace; font-size:13px; }
@@ -137,8 +154,8 @@
      3. New Bin → create with {} → paste Bin ID below
      ===================================================== -->
 <script>
-  const JSONBIN_API_KEY = "$2a$10$F3cI38dJp9qnh8m2N/SxrOFYDYlSkgaJGrdgPav8fMzXlf7Zn1CRK";
-  const JSONBIN_BIN_ID  = "6a3a87ddf5f4af5e292321ac";
+  const JSONBIN_API_KEY = "$2a$10$8PV7g22E60fO1HUHjO1BduUz4iBdjIVLwMVPblCh.KLHQVqP/OGma";
+  const JSONBIN_BIN_ID  = "$2a$10$cz.XU.iGvNkvtakL2gXYOurYRATkPQoaXruUFyogzZV67pJzPJ.8C";
 </script>
 
 <header>
@@ -156,6 +173,7 @@
     <button class="tab active" onclick="switchTab('draw')">🎯 Draw</button>
     <button class="tab" onclick="switchTab('fixtures')">📅 Fixtures</button>
     <button class="tab" onclick="switchTab('standings')">🏆 Standings</button>
+    <button class="tab" onclick="switchTab('knockout')">🔥 Knockout</button>
   </div>
 
   <!-- DRAW TAB -->
@@ -202,6 +220,14 @@
     <div class="card">
       <div class="card-label">Group standings</div>
       <div id="standings-list"><div class="loading-state">Loading standings...</div></div>
+    </div>
+  </div>
+
+  <!-- KNOCKOUT TAB -->
+  <div class="tab-panel" id="tab-knockout">
+    <div class="card">
+      <div class="card-label">Knockout bracket</div>
+      <div id="knockout-list"><div class="loading-state">Loading bracket...</div></div>
     </div>
   </div>
 
@@ -419,6 +445,7 @@ function switchTab(tab, btn) {
   activeTab = tab;
   if (tab === "fixtures")  loadFixtures();
   if (tab === "standings") loadStandings();
+  if (tab === "knockout")  loadKnockout();
 }
 
 /* ── LIVE DATA ── */
@@ -532,12 +559,130 @@ function renderStandings(groups, updated) {
     </div>`).join("") + lastUpdatedHtml(updated);
 }
 
+/* ── KNOCKOUT BRACKET ── */
+// Round of 32 fixtures — placeholder bracket structure
+// "tbd" placeholders get filled in as group stage / earlier rounds resolve
+const KNOCKOUT_ROUNDS = [
+  {
+    name: "Round of 32",
+    matches: [
+      ["ENG","PAN"],["CRO","GHA"],["COL","POR"],["COD","UZB"],
+      ["ARG","JOR"],["DZA","AUT"],["CAN","RSA"],["BRA","JPN"],
+      ["GER","PAR"],["NED","MAR"],["CIV","NOR"],["FRA","SWE"],
+      ["MEX","ECU"],["ENG","COD"],["BEL","SEN"],["USA","BIH"],
+      ["ESP","AUT"],["POR","CRO"],["SUI","DZA"],["AUS","EGY"],
+    ]
+  },
+];
+
+function findDrawnBy(countryName) {
+  const entry = Object.values(draws).find(d => d.country === countryName || d.country?.toUpperCase() === countryName);
+  return entry ? entry.name : null;
+}
+
+async function loadKnockout(silent = false) {
+  const el = document.getElementById("knockout-list");
+  if (!silent) el.innerHTML = '<div class="loading-state">Loading bracket...</div>';
+
+  if (!workerOk()) {
+    el.innerHTML = '<div class="loading-state">⚠️ Set WORKER_URL in the HTML to enable the bracket.</div>';
+    return;
+  }
+
+  try {
+    const data = await fetchFromWorker("scores");
+    renderKnockout(data.games, data.updated);
+  } catch(e) {
+    if (!silent) el.innerHTML = `<div class="loading-state">Could not load bracket — ${e.message}</div>`;
+  }
+}
+
+function renderKnockout(games, updated) {
+  const el = document.getElementById("knockout-list");
+  if (!games) { el.innerHTML = '<div class="loading-state">No bracket data available.</div>'; return; }
+
+  // Build a lookup of completed/live results by team pair
+  const resultsByTeam = {};
+  games.forEach(g => {
+    resultsByTeam[g.home] = g;
+    resultsByTeam[g.away] = g;
+  });
+
+  function findGame(abbrA, abbrB) {
+    return games.find(g =>
+      (g.home === abbrA && g.away === abbrB) ||
+      (g.home === abbrB && g.away === abbrA)
+    );
+  }
+
+  const POOL_BY_NAME = {};
+  POOL.forEach(t => { POOL_BY_NAME[t.abbr] = t; POOL_BY_NAME[t.name] = t; });
+
+  function teamHtml(abbr, side, game) {
+    const team = POOL_BY_NAME[abbr];
+    const flag = team ? team.flag : "🏳️";
+    const name = team ? team.name : abbr;
+    const drawnBy = team ? findDrawnBy(team.name) : null;
+    const badge = drawnBy ? `<span class="ko-claimed-badge">${drawnBy}</span>` : "";
+
+    let eliminated = false;
+    if (game && game.status === "final") {
+      const homeWon = game.scoreH > game.scoreA;
+      const awayWon = game.scoreA > game.scoreH;
+      if (side === "home" && awayWon) eliminated = true;
+      if (side === "away" && homeWon) eliminated = true;
+    }
+
+    const cls = eliminated ? "eliminated" : "";
+    return `<div class="ko-team ${side === 'away' ? 'right' : ''} ${cls}">
+      <span class="ko-flag-sm">${flag}</span>
+      <span class="name">${name}</span>${badge}
+    </div>`;
+  }
+
+  function tbdHtml(side) {
+    return `<div class="ko-team tbd ${side === 'away' ? 'right' : ''}">
+      <span class="ko-flag-sm">❔</span><span class="name">TBD</span>
+    </div>`;
+  }
+
+  let html = "";
+  KNOCKOUT_ROUNDS.forEach(round => {
+    html += `<div class="ko-round"><div class="ko-round-title">${round.name}</div>`;
+    round.matches.forEach(([a, b]) => {
+      const game = findGame(a, b);
+      let scoreHtml = `<div class="ko-score" style="font-size:11px;color:var(--muted);font-weight:600">vs</div>`;
+      if (game) {
+        if (game.status === "final") {
+          scoreHtml = `<div class="ko-score">${game.scoreH}–${game.scoreA}<span class="ko-status">FT</span></div>`;
+        } else if (game.status === "live") {
+          scoreHtml = `<div class="ko-score"><span class="live-dot"></span>${game.scoreH}–${game.scoreA}</div>`;
+        } else {
+          scoreHtml = `<div class="ko-score" style="font-size:10px;color:var(--muted);font-weight:600">${game.time || "vs"}</div>`;
+        }
+      }
+      html += `<div class="ko-match">
+        ${a ? teamHtml(a, "home", game) : tbdHtml("home")}
+        ${scoreHtml}
+        ${b ? teamHtml(b, "away", game) : tbdHtml("away")}
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<div class="loading-state" style="padding:1rem 0 0;font-size:12px">Later rounds will appear here once Round of 32 results are confirmed.</div>`;
+  html += lastUpdatedHtml(updated);
+
+  el.innerHTML = html;
+}
+
 /* ── AUTO-REFRESH ── */
 function startRefresh() {
   clearInterval(refreshTimer);
   refreshTimer = setInterval(() => {
     if (activeTab === "fixtures")  loadFixtures(true);
     if (activeTab === "standings") loadStandings(true);
+    if (activeTab === "knockout")  loadKnockout(true);
   }, REFRESH_MS);
 }
 
