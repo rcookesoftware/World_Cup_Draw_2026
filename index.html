@@ -109,22 +109,27 @@
   table.standings .qualified { background: rgba(0,165,80,0.08); }
   .team-cell { display:flex; align-items:center; gap:6px; }
 
-  /* KNOCKOUT BRACKET */
-  .ko-round { margin-bottom: 1.75rem; }
-  .ko-round:last-child { margin-bottom: 0; }
-  .ko-round-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold); margin-bottom: 10px; }
-  .ko-match { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:10px 12px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; margin-bottom:8px; }
-  .ko-match:last-child { margin-bottom: 0; }
-  .ko-team { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; min-width:0; overflow:hidden; }
-  .ko-team.right { flex-direction:row-reverse; justify-content:flex-start; text-align:right; }
-  .ko-team .name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ko-team.eliminated { opacity: 0.4; text-decoration: line-through; }
-  .ko-team.winner { color: var(--gold); }
-  .ko-team.tbd { color: var(--muted); font-style: italic; font-weight: 500; }
-  .ko-flag-sm { font-size:20px; flex-shrink:0; }
-  .ko-score { font-size:15px; font-weight:900; color:var(--gold); text-align:center; min-width:50px; }
-  .ko-score .ko-status { font-size:9px; font-weight:700; text-transform:uppercase; color:var(--muted); display:block; margin-top:1px; }
-  .ko-claimed-badge { font-size:9px; font-weight:700; background:var(--green); color:#fff; padding:1px 6px; border-radius:99px; margin-left:6px; text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap; }
+  /* KNOCKOUT BRACKET — horizontal tree */
+  .ko-scroll { overflow-x: auto; padding-bottom: 1rem; -webkit-overflow-scrolling: touch; }
+  .ko-tree { display: flex; gap: 28px; min-width: max-content; align-items: stretch; }
+  .ko-col { display: flex; flex-direction: column; justify-content: space-around; min-width: 190px; }
+  .ko-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold); margin-bottom: 14px; text-align: center; position: sticky; top: 0; }
+  .ko-col-inner { display: flex; flex-direction: column; justify-content: space-around; flex: 1; gap: 10px; }
+  .ko-match { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; position: relative; }
+  .ko-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; font-weight: 700; }
+  .ko-row + .ko-row { border-top: 1px solid var(--border); }
+  .ko-row .ko-flag { font-size: 18px; flex-shrink: 0; line-height: 1; }
+  .ko-row .ko-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  .ko-row .ko-pts { font-size: 14px; font-weight: 900; color: var(--text); flex-shrink: 0; }
+  .ko-row.win { background: rgba(0,165,80,0.1); }
+  .ko-row.win .ko-name { color: var(--gold); }
+  .ko-row.lose { opacity: 0.4; }
+  .ko-row.lose .ko-name { text-decoration: line-through; }
+  .ko-row.tbd .ko-name { color: var(--muted); font-style: italic; font-weight: 500; }
+  .ko-badge { font-size: 8px; font-weight: 700; background: var(--green); color: #fff; padding: 1px 5px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; flex-shrink: 0; }
+  .ko-meta { font-size: 9px; color: var(--muted); text-align: center; padding: 3px; background: rgba(0,0,0,0.2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .ko-live-dot { display:inline-block; width:6px; height:6px; background:var(--red); border-radius:50%; animation:pulse 1s infinite; margin-right:3px; }
+  .ko-final-col .ko-match { border-color: var(--gold); background: rgba(255,215,0,0.06); }
 
   /* CONFIG */
   .config-notice { background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.3); border-radius:12px; padding:14px 16px; font-size:14px; color:var(--gold); margin-bottom:1.25rem; line-height:1.6; }
@@ -164,10 +169,6 @@
 </header>
 
 <div class="container">
-
-  <div id="config-warning" class="config-notice" style="display:none">
-    ⚠️ <strong>Setup needed:</strong> Open this file and set <code>JSONBIN_API_KEY</code> and <code>JSONBIN_BIN_ID</code>. See comments inside the file.
-  </div>
 
   <div class="tabs">
     <button class="tab active" onclick="switchTab('draw')">🎯 Draw</button>
@@ -560,35 +561,32 @@ function renderStandings(groups, updated) {
 }
 
 /* ── KNOCKOUT BRACKET ── */
-// Round of 32 fixtures — placeholder bracket structure
-// "tbd" placeholders get filled in as group stage / earlier rounds resolve
-const KNOCKOUT_ROUNDS = [
-  {
-    name: "Round of 32",
-    matches: [
-      ["ENG","PAN"],["CRO","GHA"],["COL","POR"],["COD","UZB"],
-      ["ARG","JOR"],["DZA","AUT"],["CAN","RSA"],["BRA","JPN"],
-      ["GER","PAR"],["NED","MAR"],["CIV","NOR"],["FRA","SWE"],
-      ["MEX","ECU"],["ENG","COD"],["BEL","SEN"],["USA","BIH"],
-      ["ESP","AUT"],["POR","CRO"],["SUI","DZA"],["AUS","EGY"],
-    ]
-  },
+// Round of 32 ties (knockout matches from 30 Jun onwards).
+// Each entry is [teamA_abbr, teamB_abbr] — null means slot not yet known.
+// Winners auto-advance into later rounds based on live results.
+const R32_MATCHES = [
+  ["CIV","NOR"], ["FRA","SWE"], ["MEX","ECU"], ["ENG","COD"],
+  ["BEL","SEN"], ["USA","BIH"], ["ESP","AUT"], ["POR","CRO"],
+  ["SUI","DZA"], ["AUS","EGY"], [null,null],   [null,null],
+  [null,null],   [null,null],   [null,null],   [null,null],
 ];
+const ROUND_NAMES = ["Round of 32", "Round of 16", "Quarter-finals", "Semi-finals", "Final"];
+
+const POOL_LOOKUP = {};
+[...SEEDED, ...REST].forEach(t => { POOL_LOOKUP[t.abbr] = t; });
 
 function findDrawnBy(countryName) {
-  const entry = Object.values(draws).find(d => d.country === countryName || d.country?.toUpperCase() === countryName);
+  const entry = Object.values(draws).find(d => d.country === countryName);
   return entry ? entry.name : null;
 }
 
 async function loadKnockout(silent = false) {
   const el = document.getElementById("knockout-list");
   if (!silent) el.innerHTML = '<div class="loading-state">Loading bracket...</div>';
-
   if (!workerOk()) {
     el.innerHTML = '<div class="loading-state">⚠️ Set WORKER_URL in the HTML to enable the bracket.</div>';
     return;
   }
-
   try {
     const data = await fetchFromWorker("scores");
     renderKnockout(data.games, data.updated);
@@ -599,81 +597,85 @@ async function loadKnockout(silent = false) {
 
 function renderKnockout(games, updated) {
   const el = document.getElementById("knockout-list");
-  if (!games) { el.innerHTML = '<div class="loading-state">No bracket data available.</div>'; return; }
+  games = games || [];
 
-  // Build a lookup of completed/live results by team pair
-  const resultsByTeam = {};
-  games.forEach(g => {
-    resultsByTeam[g.home] = g;
-    resultsByTeam[g.away] = g;
-  });
-
-  function findGame(abbrA, abbrB) {
+  function findGame(a, b) {
+    if (!a || !b) return null;
     return games.find(g =>
-      (g.home === abbrA && g.away === abbrB) ||
-      (g.home === abbrB && g.away === abbrA)
+      (g.home === a && g.away === b) || (g.home === b && g.away === a)
     );
   }
 
-  const POOL_BY_NAME = {};
-  POOL.forEach(t => { POOL_BY_NAME[t.abbr] = t; POOL_BY_NAME[t.name] = t; });
+  // Determine winner abbr of a tie (null if not decided)
+  function winnerOf(a, b) {
+    const g = findGame(a, b);
+    if (!g || g.status !== "final") return null;
+    if (g.scoreH > g.scoreA) return g.home;
+    if (g.scoreA > g.scoreH) return g.away;
+    return null; // draw — would go to pens, data doesn't expose result
+  }
 
-  function teamHtml(abbr, side, game) {
-    const team = POOL_BY_NAME[abbr];
-    const flag = team ? team.flag : "🏳️";
-    const name = team ? team.name : abbr;
-    const drawnBy = team ? findDrawnBy(team.name) : null;
-    const badge = drawnBy ? `<span class="ko-claimed-badge">${drawnBy}</span>` : "";
-
-    let eliminated = false;
-    if (game && game.status === "final") {
-      const homeWon = game.scoreH > game.scoreA;
-      const awayWon = game.scoreA > game.scoreH;
-      if (side === "home" && awayWon) eliminated = true;
-      if (side === "away" && homeWon) eliminated = true;
+  // Build all rounds: each round is array of [a,b] pairs
+  const rounds = [R32_MATCHES];
+  for (let r = 1; r < 5; r++) {
+    const prev = rounds[r - 1];
+    const next = [];
+    for (let i = 0; i < prev.length; i += 2) {
+      const wA = winnerOf(prev[i][0], prev[i][1]);
+      const wB = winnerOf(prev[i + 1][0], prev[i + 1][1]);
+      next.push([wA, wB]);
     }
+    rounds.push(next);
+  }
 
-    const cls = eliminated ? "eliminated" : "";
-    return `<div class="ko-team ${side === 'away' ? 'right' : ''} ${cls}">
-      <span class="ko-flag-sm">${flag}</span>
-      <span class="name">${name}</span>${badge}
+  function rowHtml(abbr, game, isWinner, isLoser) {
+    const team = abbr ? POOL_LOOKUP[abbr] : null;
+    if (!team) {
+      return `<div class="ko-row tbd"><span class="ko-flag">❔</span><span class="ko-name">TBD</span></div>`;
+    }
+    const drawnBy = findDrawnBy(team.name);
+    const badge = drawnBy ? `<span class="ko-badge">${drawnBy}</span>` : "";
+    let score = "";
+    if (game && (game.status === "final" || game.status === "live")) {
+      const isHome = game.home === abbr;
+      score = `<span class="ko-pts">${isHome ? game.scoreH : game.scoreA}</span>`;
+    }
+    const cls = isWinner ? "win" : isLoser ? "lose" : "";
+    return `<div class="ko-row ${cls}">
+      <span class="ko-flag">${team.flag}</span>
+      <span class="ko-name">${team.name}</span>
+      ${badge}${score}
     </div>`;
   }
 
-  function tbdHtml(side) {
-    return `<div class="ko-team tbd ${side === 'away' ? 'right' : ''}">
-      <span class="ko-flag-sm">❔</span><span class="name">TBD</span>
+  function matchHtml([a, b]) {
+    const game = findGame(a, b);
+    const w = winnerOf(a, b);
+    let meta = "";
+    if (game) {
+      if (game.status === "final")      meta = `<div class="ko-meta">FT</div>`;
+      else if (game.status === "live")  meta = `<div class="ko-meta"><span class="ko-live-dot"></span>Live</div>`;
+      else if (game.time)               meta = `<div class="ko-meta">${game.time}</div>`;
+    }
+    return `<div class="ko-match">
+      ${rowHtml(a, game, w && w === a, w && w !== a && !!a)}
+      ${rowHtml(b, game, w && w === b, w && w !== b && !!b)}
+      ${meta}
     </div>`;
   }
 
-  let html = "";
-  KNOCKOUT_ROUNDS.forEach(round => {
-    html += `<div class="ko-round"><div class="ko-round-title">${round.name}</div>`;
-    round.matches.forEach(([a, b]) => {
-      const game = findGame(a, b);
-      let scoreHtml = `<div class="ko-score" style="font-size:11px;color:var(--muted);font-weight:600">vs</div>`;
-      if (game) {
-        if (game.status === "final") {
-          scoreHtml = `<div class="ko-score">${game.scoreH}–${game.scoreA}<span class="ko-status">FT</span></div>`;
-        } else if (game.status === "live") {
-          scoreHtml = `<div class="ko-score"><span class="live-dot"></span>${game.scoreH}–${game.scoreA}</div>`;
-        } else {
-          scoreHtml = `<div class="ko-score" style="font-size:10px;color:var(--muted);font-weight:600">${game.time || "vs"}</div>`;
-        }
-      }
-      html += `<div class="ko-match">
-        ${a ? teamHtml(a, "home", game) : tbdHtml("home")}
-        ${scoreHtml}
-        ${b ? teamHtml(b, "away", game) : tbdHtml("away")}
-      </div>`;
-    });
-    html += `</div>`;
+  let cols = "";
+  rounds.forEach((round, idx) => {
+    const isFinal = idx === 4;
+    cols += `<div class="ko-col ${isFinal ? 'ko-final-col' : ''}">
+      <div class="ko-col-title">${ROUND_NAMES[idx]}</div>
+      <div class="ko-col-inner">
+        ${round.map(matchHtml).join("")}
+      </div>
+    </div>`;
   });
 
-  html += `<div class="loading-state" style="padding:1rem 0 0;font-size:12px">Later rounds will appear here once Round of 32 results are confirmed.</div>`;
-  html += lastUpdatedHtml(updated);
-
-  el.innerHTML = html;
+  el.innerHTML = `<div class="ko-scroll"><div class="ko-tree">${cols}</div></div>` + lastUpdatedHtml(updated);
 }
 
 /* ── AUTO-REFRESH ── */
