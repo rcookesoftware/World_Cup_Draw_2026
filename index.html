@@ -565,12 +565,14 @@ function renderStandings(groups, updated) {
 }
 
 /* ── KNOCKOUT BRACKET ── */
-// Confirmed Round of 32 ties from the live feed (knockout games, 30 Jun onward).
-// As more R32 ties appear in the feed, add them here. Winners auto-advance.
+// All 16 Round of 32 ties. Ordered so adjacent pairs feed the correct R16 tie.
+// Optional 3rd element = penalty-shootout winner (when a tie ends level and the
+// feed doesn't expose the shootout result, but a later-round tie reveals it).
 const R32_MATCHES = [
+  ["RSA","CAN"], ["NED","MAR","MAR"], ["BRA","JPN"], ["GER","PAR"],
   ["CIV","NOR"], ["FRA","SWE"], ["MEX","ECU"], ["ENG","COD"],
   ["BEL","SEN"], ["USA","BIH"], ["ESP","AUT"], ["POR","CRO"],
-  ["SUI","DZA"], ["AUS","EGY"],
+  ["SUI","DZA"], ["AUS","EGY"], ["ARG","CPV"], ["COL","GHA"],
 ];
 const ROUND_NAMES = ["Round of 32", "Round of 16", "Quarter-finals", "Semi-finals", "Final"];
 
@@ -608,27 +610,29 @@ function renderKnockout(games, updated) {
     );
   }
 
-  // Determine winner abbr of a tie (null if not decided)
-  function winnerOf(a, b) {
+  // Determine winner abbr of a tie (null if not decided).
+  // match = [a, b] or [a, b, shootoutWinner]
+  function winnerOf(match) {
+    if (!match) return null;
+    const a = match[0], b = match[1], override = match[2];
     const g = findGame(a, b);
     if (!g || g.status !== "final") return null;
     if (g.scoreH > g.scoreA) return g.home;
     if (g.scoreA > g.scoreH) return g.away;
-    return null; // draw — would go to pens, data doesn't expose result
+    return override || null; // level game — use shootout winner if known
   }
 
-  // Build rounds: each round is array of [a,b] pairs. Winners advance.
+  // Build rounds: each round is array of match arrays. Winners advance.
   const rounds = [R32_MATCHES];
   for (let r = 1; r < 5; r++) {
     const prev = rounds[r - 1];
     if (prev.length < 2) break;
     const next = [];
     for (let i = 0; i < prev.length; i += 2) {
-      const wA = winnerOf(prev[i][0], prev[i][1]);
-      const wB = prev[i + 1] ? winnerOf(prev[i + 1][0], prev[i + 1][1]) : null;
+      const wA = winnerOf(prev[i]);
+      const wB = prev[i + 1] ? winnerOf(prev[i + 1]) : null;
       next.push([wA, wB]);
     }
-    // Only add this round if at least one team in it is known
     const hasKnown = next.some(([a, b]) => a || b);
     if (!hasKnown) break;
     rounds.push(next);
@@ -654,9 +658,10 @@ function renderKnockout(games, updated) {
     </div>`;
   }
 
-  function matchHtml([a, b]) {
+  function matchHtml(match) {
+    const a = match[0], b = match[1];
     const game = findGame(a, b);
-    const w = winnerOf(a, b);
+    const w = winnerOf(match);
     let meta = "";
     if (game) {
       if (game.status === "final")      meta = `<div class="ko-meta">FT</div>`;
