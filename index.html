@@ -95,8 +95,6 @@
   .fixture-score .score-time { font-size:11px; color:var(--muted); display:block; margin-top:3px; line-height:1.5; }
   .fixture-score .live-dot { display:inline-block; width:7px; height:7px; background:var(--red); border-radius:50%; margin-right:4px; animation:pulse 1s infinite; vertical-align:middle; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
-  .prob-bar { display:flex; height:4px; border-radius:99px; overflow:hidden; margin-top:6px; gap:2px; }
-  .prob-seg { height:100%; border-radius:99px; }
 
   /* STANDINGS TABLE */
   .group-block { margin-bottom: 1.5rem; }
@@ -152,17 +150,6 @@
 </head>
 <body>
 
-<!-- =====================================================
-     CONFIGURATION — fill these in before deploying
-     1. Go to https://jsonbin.io — sign up free
-     2. API Keys → Create Access Key → paste below
-     3. New Bin → create with {} → paste Bin ID below
-     ===================================================== -->
-<script>
-  const JSONBIN_API_KEY = "$2a$10$D2ha3n6wh8IsLfjAFOOKwuInk2eh6eT7YwD6Exu/NnLFNPy4/JF5C";
-  const JSONBIN_BIN_ID  = "6a3a87ddf5f4af5e292321ac";
-</script>
-
 <header>
   <h1>World Cup 2026 <span>Team Draw</span></h1>
   <p>Enter your name and pull your country — each team can only be claimed once.</p>
@@ -171,14 +158,14 @@
 <div class="container">
 
   <div id="config-warning" class="config-notice" style="display:none">
-    ⚠️ <strong>Setup needed:</strong> Open this file and set <code>JSONBIN_API_KEY</code> and <code>JSONBIN_BIN_ID</code>. See comments inside the file.
+    ⚠️ <strong>Setup needed:</strong> Open this file and set <code>WORKER_URL</code> to your Cloudflare Worker URL.
   </div>
 
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('draw')">🎯 Draw</button>
-    <button class="tab" onclick="switchTab('fixtures')">📅 Fixtures</button>
-    <button class="tab" onclick="switchTab('standings')">🏆 Standings</button>
-    <button class="tab" onclick="switchTab('knockout')">🔥 Knockout</button>
+    <button class="tab active" onclick="switchTab('draw', this)">🎯 Draw</button>
+    <button class="tab" onclick="switchTab('fixtures', this)">📅 Fixtures</button>
+    <button class="tab" onclick="switchTab('standings', this)">🏆 Standings</button>
+    <button class="tab" onclick="switchTab('knockout', this)">🔥 Knockout</button>
   </div>
 
   <!-- DRAW TAB -->
@@ -239,7 +226,15 @@
 </div>
 
 <script>
-/* ── TEAMS: 10 seeded favourites + 20 randomly filled from the rest ── */
+// =====================================================
+// CONFIG — the only thing to set. No API keys live in
+// this file any more; the Worker holds all credentials.
+// =====================================================
+const WORKER_URL = "https://wc2026-workerjs.rcooketuam.workers.dev";
+const MAX_DRAWS  = 30;
+// =====================================================
+
+/* ── TEAMS: 10 seeded favourites + the rest of the 48 ── */
 const SEEDED = [
   {name:"Brazil",      flag:"🇧🇷", abbr:"BRA"},
   {name:"France",      flag:"🇫🇷", abbr:"FRA"},
@@ -274,47 +269,37 @@ const REST = [
   {name:"Panama",              flag:"🇵🇦", abbr:"PAN"},{name:"Türkiye",             flag:"🇹🇷", abbr:"TUR"},
 ];
 
-const BASE = "https://api.jsonbin.io/v3/b";
-// Pool is always built from the hardcoded team list — never stored in JSONBin
-// Only draws are stored: { "ryan": { name, country, flag }, ... }
-const POOL = [...SEEDED, ...REST]; // all 48 teams
+const POOL = [...SEEDED, ...REST]; // all 48 teams (display only — draws happen server-side)
 let draws = {};
-let saving = false;
+let drawing = false;
 
-function configOk() {
-  return JSONBIN_API_KEY !== "YOUR_API_KEY_HERE" && JSONBIN_BIN_ID !== "YOUR_BIN_ID_HERE";
+function workerOk() {
+  return WORKER_URL && WORKER_URL !== "YOUR_WORKER_URL_HERE";
 }
 
-async function loadFromBin() {
-  const r = await fetch(`${BASE}/${JSONBIN_BIN_ID}/latest`, {
-    headers: { "X-Master-Key": JSONBIN_API_KEY }
-  });
-  if (!r.ok) throw new Error(`JSONBin ${r.status}`);
-  const j = await r.json();
-  return j.record || {};
+// Escape user-provided strings before injecting into innerHTML
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
-async function saveToBin(data) {
-  const r = await fetch(`${BASE}/${JSONBIN_BIN_ID}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
-    body: JSON.stringify(data)
-  });
-  if (!r.ok) throw new Error(`Save failed ${r.status}`);
-}
-
+/* ── DRAWS (all via the Worker — no keys in this file) ── */
 async function loadDraws() {
-  if (!configOk()) {
+  if (!workerOk()) {
     document.getElementById("config-warning").style.display = "block";
-    document.getElementById("results-grid").innerHTML = '<div class="empty">Configure JSONBin to get started.</div>';
+    document.getElementById("results-grid").innerHTML = '<div class="empty">Set WORKER_URL to get started.</div>';
     document.getElementById("stat-drawn").textContent = "—";
     document.getElementById("stat-remaining").textContent = "—";
     return;
   }
   try {
-    draws = await loadFromBin();
+    const r = await fetch(`${WORKER_URL}?type=draws`);
+    if (!r.ok) throw new Error(`Worker ${r.status}`);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    draws = j.draws || {};
   } catch(e) {
-    showError("Could not load draws. Check your JSONBin config.");
+    showError("Could not load draws — refresh to try again.");
     document.getElementById("stat-drawn").textContent = "?";
     document.getElementById("stat-remaining").textContent = "?";
     document.getElementById("results-grid").innerHTML = '<div class="empty">Could not connect — refresh to try again.</div>';
@@ -322,9 +307,6 @@ async function loadDraws() {
   }
   render();
 }
-
-function getUsed()      { return Object.values(draws).map(d => d.country); }
-function getAvailable() { return POOL.filter(t => !getUsed().includes(t.name)); }
 
 function showError(msg) {
   const el = document.getElementById("error-msg");
@@ -342,59 +324,50 @@ function clearMsgs() {
 }
 
 async function handleDraw() {
-  if (saving) return;
+  if (drawing) return;
   const name = document.getElementById("name-input").value.trim();
   if (!name) { document.getElementById("name-input").focus(); return; }
-  if (!configOk()) { showError("JSONBin not configured — see the file comments."); return; }
+  if (!workerOk()) { showError("WORKER_URL not configured — see the file comments."); return; }
 
-  const key = normalizeName(name);
   clearMsgs();
+  drawing = true;
   const btn = document.getElementById("draw-btn");
   btn.disabled = true;
   btn.innerHTML = 'Drawing <span class="spinner"></span>';
 
-  await loadDraws();
-
-  if (draws[key]) {
-    const team = POOL.find(t => t.name === draws[key].country);
-    showInfo(`You already drew ${team ? team.flag : ""} ${draws[key].country}!`);
-    triggerReveal(team ? team.flag : "🏳️", draws[key].country, `Already drawn, ${draws[key].name}!`);
-    btn.disabled = false; btn.textContent = "Draw ⚽";
-    return;
-  }
-
-  if (Object.keys(draws).length >= 30) {
-    showError("The sweepstake is full — all 30 spots have been taken!");
-    btn.disabled = false; btn.textContent = "Draw ⚽";
-    return;
-  }
-
-  const available = getAvailable();
-  if (available.length === 0) {
-    showError("All teams have been drawn — the sweepstake is full!");
-    btn.disabled = false; btn.textContent = "Draw ⚽";
-    return;
-  }
-
-  const pick = available[Math.floor(Math.random() * available.length)];
-  draws[key] = { name, country: pick.name, flag: pick.flag };
-
-  saving = true;
   try {
-    await saveToBin(draws);
-  } catch(e) {
-    showError("Draw worked but couldn't save — try again.");
-    delete draws[key];
-    saving = false;
-    btn.disabled = false; btn.textContent = "Draw ⚽";
-    return;
-  }
-  saving = false;
+    const r = await fetch(`${WORKER_URL}?type=draw`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const j = await r.json();
 
-  triggerReveal(pick.flag, pick.name, `Good luck, ${name}! 🎉`);
-  clearMsgs();
-  render();
-  btn.disabled = false; btn.textContent = "Draw ⚽";
+    if (j.error) {
+      showError(j.error);
+    } else if (j.status === "existing") {
+      draws = j.draws || draws;
+      showInfo(`You already drew ${j.entry.flag} ${j.entry.country}!`);
+      triggerReveal(j.entry.flag, j.entry.country, `Already drawn, ${j.entry.name}!`);
+      render();
+    } else if (j.status === "full") {
+      draws = j.draws || draws;
+      showError("The sweepstake is full — all 30 spots have been taken!");
+      render();
+    } else if (j.status === "ok") {
+      draws = j.draws || draws;
+      triggerReveal(j.entry.flag, j.entry.country, `Good luck, ${j.entry.name}! 🎉`);
+      render();
+    } else {
+      showError("Unexpected response — try again.");
+    }
+  } catch(e) {
+    showError("Draw failed — check your connection and try again.");
+  }
+
+  drawing = false;
+  btn.disabled = false;
+  btn.textContent = "Draw ⚽";
 }
 
 function triggerReveal(flag, country, sub) {
@@ -411,31 +384,19 @@ function render() {
   const entries = Object.values(draws).sort((a,b) => a.name.localeCompare(b.name));
   const drawn   = entries.length;
   document.getElementById("stat-drawn").textContent     = drawn;
-  document.getElementById("stat-remaining").textContent = 30 - drawn;
-  document.getElementById("progress-bar").style.width   = Math.round((drawn / 30) * 100) + "%";
+  document.getElementById("stat-remaining").textContent = Math.max(0, MAX_DRAWS - drawn);
+  document.getElementById("progress-bar").style.width   = Math.min(100, Math.round((drawn / MAX_DRAWS) * 100)) + "%";
   const grid = document.getElementById("results-grid");
   if (!entries.length) { grid.innerHTML = '<div class="empty">No draws yet — be the first!</div>'; return; }
   grid.innerHTML = entries.map(d => `
     <div class="result-item">
-      <span class="result-flag">${d.flag}</span>
+      <span class="result-flag">${esc(d.flag)}</span>
       <div class="result-info">
-        <div class="result-country">${d.country}</div>
-        <div class="result-person">${d.name}</div>
+        <div class="result-country">${esc(d.country)}</div>
+        <div class="result-person">${esc(d.name)}</div>
       </div>
     </div>`).join("");
 }
-
-// Normalize name for duplicate checking — lowercase, trim, collapse spaces
-function normalizeName(n) {
-  return n.toLowerCase().trim().replace(/\s+/g, " ");
-}
-
-// =====================================================
-// STEP 2 CONFIG — paste your Cloudflare Worker URL here
-// after deploying wc2026-worker.js
-// =====================================================
-const WORKER_URL = "https://wc2026-workerjs.rcooketuam.workers.dev";
-// =====================================================
 
 const REFRESH_MS = 3 * 60 * 1000; // auto-refresh every 3 minutes
 let refreshTimer = null;
@@ -448,16 +409,13 @@ function switchTab(tab, btn) {
   document.getElementById("tab-" + tab).classList.add("active");
   btn.classList.add("active");
   activeTab = tab;
+  if (tab === "draw")      loadDraws();
   if (tab === "fixtures")  loadFixtures();
   if (tab === "standings") loadStandings();
   if (tab === "knockout")  loadKnockout();
 }
 
 /* ── LIVE DATA ── */
-function workerOk() {
-  return WORKER_URL !== "YOUR_WORKER_URL_HERE";
-}
-
 function lastUpdatedHtml(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -469,7 +427,9 @@ async function fetchFromWorker(type) {
   if (!workerOk()) return null;
   const r = await fetch(`${WORKER_URL}?type=${type}`);
   if (!r.ok) throw new Error(`Worker error ${r.status}`);
-  return r.json();
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
 }
 
 /* ── FIXTURES ── */
@@ -486,8 +446,13 @@ async function loadFixtures(silent = false) {
     const data = await fetchFromWorker("scores");
     renderFixtures(data.games, data.updated);
   } catch(e) {
-    if (!silent) el.innerHTML = `<div class="loading-state">Could not load fixtures — ${e.message}</div>`;
+    if (!silent) el.innerHTML = `<div class="loading-state">Could not load fixtures — ${esc(e.message)}</div>`;
   }
+}
+
+function penHtml(g) {
+  return (g.penH != null && g.penA != null)
+    ? ` · ${g.penH}–${g.penA} pens` : "";
 }
 
 function renderFixtures(games, updated) {
@@ -496,32 +461,23 @@ function renderFixtures(games, updated) {
   el.innerHTML = games.map(g => {
     const fH = g.homeFlag || "🏳️";
     const fA = g.awayFlag || "🏳️";
-    const isFinal = g.status === "closed" || g.status === "final";
-    const isLive  = g.status === "inprogress" || g.status === "live";
+    const isFinal = g.status === "final";
+    const isLive  = g.status === "live";
     let scoreHtml = "";
     if (isFinal) {
-      scoreHtml = `<div class="fixture-score">${g.scoreH} – ${g.scoreA}<span class="score-status">FT</span></div>`;
+      scoreHtml = `<div class="fixture-score">${g.scoreH} – ${g.scoreA}<span class="score-status">FT${penHtml(g)}</span></div>`;
     } else if (isLive) {
       scoreHtml = `<div class="fixture-score"><span class="live-dot"></span>${g.scoreH} – ${g.scoreA}</div>`;
     } else {
-      scoreHtml = `<div class="fixture-score" style="font-size:12px;color:var(--muted);font-weight:600;line-height:1.4">vs<span class="score-time">${g.time}</span></div>`;
+      scoreHtml = `<div class="fixture-score" style="font-size:12px;color:var(--muted);font-weight:600;line-height:1.4">vs<span class="score-time">${esc(g.time)}</span></div>`;
     }
-    const probH = g.probH != null ? Math.round(g.probH) : null;
-    const probA = g.probA != null ? Math.round(g.probA) : null;
-    const probD = g.probD != null ? Math.round(g.probD) : null;
-    const probHtml = (probH != null && !isFinal) ? `<div class="prob-bar">
-      <div class="prob-seg" style="width:${probH}%;background:var(--green);opacity:0.7" title="${probH}% home"></div>
-      <div class="prob-seg" style="width:${probD}%;background:var(--muted);opacity:0.5" title="${probD}% draw"></div>
-      <div class="prob-seg" style="width:${probA}%;background:var(--red);opacity:0.7" title="${probA}% away"></div>
-    </div>` : "";
     const homeName = g.homeName || g.home;
     const awayName = g.awayName || g.away;
-    return `<div>
-      <div class="fixture-item">
-        <div class="fixture-team"><span class="fixture-flag-sm">${fH}</span><span class="name">${homeName}</span></div>
-        ${scoreHtml}
-        <div class="fixture-team right"><span class="name">${awayName}</span><span class="fixture-flag-sm">${fA}</span></div>
-      </div>${probHtml}</div>`;
+    return `<div class="fixture-item">
+      <div class="fixture-team"><span class="fixture-flag-sm">${fH}</span><span class="name">${esc(homeName)}</span></div>
+      ${scoreHtml}
+      <div class="fixture-team right"><span class="name">${esc(awayName)}</span><span class="fixture-flag-sm">${fA}</span></div>
+    </div>`;
   }).join("") + lastUpdatedHtml(updated);
 }
 
@@ -539,7 +495,7 @@ async function loadStandings(silent = false) {
     const data = await fetchFromWorker("standings");
     renderStandings(data.groups, data.updated);
   } catch(e) {
-    if (!silent) el.innerHTML = `<div class="loading-state">Could not load standings — ${e.message}</div>`;
+    if (!silent) el.innerHTML = `<div class="loading-state">Could not load standings — ${esc(e.message)}</div>`;
   }
 }
 
@@ -548,13 +504,13 @@ function renderStandings(groups, updated) {
   if (!groups || !groups.length) { el.innerHTML = '<div class="loading-state">No standings available.</div>'; return; }
   el.innerHTML = groups.map(g => `
     <div class="group-block">
-      <div class="group-title">Group ${g.group}</div>
+      <div class="group-title">Group ${esc(g.group)}</div>
       <table class="standings">
         <thead><tr><th>Team</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead>
         <tbody>
           ${g.teams.map((t, i) => `
             <tr class="${i < 2 ? 'qualified' : ''}">
-              <td><div class="team-cell">${t.flag} ${t.name}</div></td>
+              <td><div class="team-cell">${t.flag} ${esc(t.name)}</div></td>
               <td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
               <td style="color:${(t.gd||0)>=0?'var(--green)':'var(--red)'}">${(t.gd||0)>0?'+':''}${t.gd||0}</td>
               <td class="pts">${t.pts}</td>
@@ -566,8 +522,8 @@ function renderStandings(groups, updated) {
 
 /* ── KNOCKOUT BRACKET ── */
 // All 16 Round of 32 ties. Ordered so adjacent pairs feed the correct R16 tie.
-// Optional 3rd element = penalty-shootout winner (when a tie ends level and the
-// feed doesn't expose the shootout result, but a later-round tie reveals it).
+// Optional 3rd element = manual penalty-shootout winner override — only needed
+// if the feed doesn't return penalty scores for a level tie.
 const R32_MATCHES = [
   ["RSA","CAN"], ["NED","MAR","MAR"], ["BRA","JPN"], ["GER","PAR"],
   ["CIV","NOR"], ["FRA","SWE"], ["MEX","ECU"], ["ENG","COD"],
@@ -577,7 +533,7 @@ const R32_MATCHES = [
 const ROUND_NAMES = ["Round of 32", "Round of 16", "Quarter-finals", "Semi-finals", "Final"];
 
 const POOL_LOOKUP = {};
-[...SEEDED, ...REST].forEach(t => { POOL_LOOKUP[t.abbr] = t; });
+POOL.forEach(t => { POOL_LOOKUP[t.abbr] = t; });
 
 function findDrawnBy(countryName) {
   const entry = Object.values(draws).find(d => d.country === countryName);
@@ -595,7 +551,7 @@ async function loadKnockout(silent = false) {
     const data = await fetchFromWorker("scores");
     renderKnockout(data.games, data.updated);
   } catch(e) {
-    if (!silent) el.innerHTML = `<div class="loading-state">Could not load bracket — ${e.message}</div>`;
+    if (!silent) el.innerHTML = `<div class="loading-state">Could not load bracket — ${esc(e.message)}</div>`;
   }
 }
 
@@ -611,7 +567,7 @@ function renderKnockout(games, updated) {
   }
 
   // Determine winner abbr of a tie (null if not decided).
-  // match = [a, b] or [a, b, shootoutWinner]
+  // match = [a, b] or [a, b, manualShootoutWinner]
   function winnerOf(match) {
     if (!match) return null;
     const a = match[0], b = match[1], override = match[2];
@@ -619,7 +575,11 @@ function renderKnockout(games, updated) {
     if (!g || g.status !== "final") return null;
     if (g.scoreH > g.scoreA) return g.home;
     if (g.scoreA > g.scoreH) return g.away;
-    return override || null; // level game — use shootout winner if known
+    // Level after extra time — resolve on penalties from the feed if present
+    if (g.penH != null && g.penA != null && g.penH !== g.penA) {
+      return g.penH > g.penA ? g.home : g.away;
+    }
+    return override || null; // fall back to manual override if known
   }
 
   // Build rounds: each round is array of match arrays. Winners advance.
@@ -644,16 +604,19 @@ function renderKnockout(games, updated) {
       return `<div class="ko-row tbd"><span class="ko-flag">❔</span><span class="ko-name">TBD</span></div>`;
     }
     const drawnBy = findDrawnBy(team.name);
-    const badge = drawnBy ? `<span class="ko-badge">${drawnBy}</span>` : "";
+    const badge = drawnBy ? `<span class="ko-badge">${esc(drawnBy)}</span>` : "";
     let score = "";
     if (game && (game.status === "final" || game.status === "live")) {
       const isHome = game.home === abbr;
-      score = `<span class="ko-pts">${isHome ? game.scoreH : game.scoreA}</span>`;
+      const pts = isHome ? game.scoreH : game.scoreA;
+      const pen = (game.penH != null && game.penA != null)
+        ? `<span style="font-size:10px;color:var(--muted)"> (${isHome ? game.penH : game.penA})</span>` : "";
+      score = `<span class="ko-pts">${pts}${pen}</span>`;
     }
     const cls = isWinner ? "win" : isLoser ? "lose" : "";
     return `<div class="ko-row ${cls}">
       <span class="ko-flag">${team.flag}</span>
-      <span class="ko-name">${team.name}</span>
+      <span class="ko-name">${esc(team.name)}</span>
       ${badge}${score}
     </div>`;
   }
@@ -664,9 +627,11 @@ function renderKnockout(games, updated) {
     const w = winnerOf(match);
     let meta = "";
     if (game) {
-      if (game.status === "final")      meta = `<div class="ko-meta">FT</div>`;
+      if (game.status === "final") {
+        meta = (game.penH != null) ? `<div class="ko-meta">FT · Pens</div>` : `<div class="ko-meta">FT</div>`;
+      }
       else if (game.status === "live")  meta = `<div class="ko-meta"><span class="ko-live-dot"></span>Live</div>`;
-      else if (game.time)               meta = `<div class="ko-meta">${game.time}</div>`;
+      else if (game.time)               meta = `<div class="ko-meta">${esc(game.time)}</div>`;
     }
     return `<div class="ko-match">
       ${rowHtml(a, game, w && w === a, w && w !== a && !!a)}
@@ -687,7 +652,7 @@ function renderKnockout(games, updated) {
   });
 
   el.innerHTML = `<div class="ko-scroll"><div class="ko-tree">${cols}</div></div>`
-    + `<div class="loading-state" style="padding:1rem 0 0;font-size:12px;text-align:left">Bracket grows as games are played — more Round of 32 ties appear as their kickoff approaches, and winners advance automatically. Draws decided on penalties may take a moment to resolve.</div>`
+    + `<div class="loading-state" style="padding:1rem 0 0;font-size:12px;text-align:left">Bracket grows as games are played — winners advance automatically, including ties decided on penalties.</div>`
     + lastUpdatedHtml(updated);
 }
 
@@ -695,6 +660,7 @@ function renderKnockout(games, updated) {
 function startRefresh() {
   clearInterval(refreshTimer);
   refreshTimer = setInterval(() => {
+    if (activeTab === "draw")      loadDraws();
     if (activeTab === "fixtures")  loadFixtures(true);
     if (activeTab === "standings") loadStandings(true);
     if (activeTab === "knockout")  loadKnockout(true);
@@ -703,12 +669,6 @@ function startRefresh() {
 
 document.getElementById("name-input").addEventListener("keydown", e => {
   if (e.key === "Enter") handleDraw();
-});
-
-// Update tab onclick to pass button ref
-document.querySelectorAll(".tab").forEach(btn => {
-  const tab = btn.getAttribute("onclick").match(/'(\w+)'/)?.[1];
-  if (tab) btn.setAttribute("onclick", `switchTab('${tab}', this)`);
 });
 
 loadDraws();
